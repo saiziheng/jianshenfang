@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  FRONT_DESK
+  TRAINER
+}
+
+enum MemberStatus {
+  ACTIVE
+  FROZEN
+  EXPIRED
+  BLACKLISTED
+}
+
+enum PackageType {
+  TIME_CARD
+  VISIT_CARD
+  PT_CARD
+}
+
+enum CardStatus {
+  ACTIVE
+  EXPIRED
+  FROZEN
+  TRANSFERRED
+}
+
+enum AppointmentStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
+  ABSENT
+}
+
+enum AccessDirection {
+  IN
+  OUT
+}
+
+enum AccessResult {
+  ALLOWED
+  DENIED
+  ERROR
+  MANUAL
+}
+
+enum PaymentMethod {
+  CASH
+  WECHAT
+  ALIPAY
+  BANK_CARD
+  OTHER
+}
+
+enum PaymentBizType {
+  OPEN_CARD
+  RENEW_CARD
+  CHANGE_CARD
+  ADD_VISITS
+  ADD_LESSONS
+  MANUAL
+}
+
+model Admin {
+  id                  String           @id @default(cuid())
+  username            String           @unique
+  passwordHash        String           @map("password_hash")
+  name                String
+  role                Role             @default(FRONT_DESK)
+  active              Boolean          @default(true)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  accessLogs          AccessLog[]
+  presenceCorrections MemberPresence[] @relation("PresenceCorrectedBy")
+
+  @@map("admins")
+}
+
+model Member {
+  id          String           @id @default(cuid())
+  memberNo    String           @unique @map("member_no")
+  name        String
+  phone       String           @unique
+  gender      String?
+  birthday    DateTime?
+  status      MemberStatus     @default(ACTIVE)
+  note        String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  cards       MemberCard[]
+  appointments Appointment[]
+  accessLogs  AccessLog[]
+  payments    Payment[]
+  presence    MemberPresence?
+
+  @@index([name])
+  @@index([status])
+  @@map("members")
+}
+
+model Trainer {
+  id           String        @id @default(cuid())
+  name         String
+  phone        String        @unique
+  specialties  String?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  appointments Appointment[]
+
+  @@index([active])
+  @@map("trainers")
+}
+
+model PackagePlan {
+  id             String        @id @default(cuid())
+  name           String
+  type           PackageType
+  price          Decimal       @db.Decimal(10, 2)
+  durationDays   Int?          @map("duration_days")
+  totalVisits    Int?          @map("total_visits")
+  totalLessons   Int?          @map("total_lessons")
+  active         Boolean       @default(true)
+  warningDays    Int           @default(7) @map("warning_days")
+  warningVisits  Int           @default(3) @map("warning_visits")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  memberCards    MemberCard[]
+  payments       Payment[]
+
+  @@index([type, active])
+  @@map("packages")
+}
+
+model MemberCard {
+  id               String              @id @default(cuid())
+  memberId         String              @map("member_id")
+  packageId        String              @map("package_id")
+  cardNo           String              @unique @map("card_no")
+  type             PackageType
+  status           CardStatus          @default(ACTIVE)
+  startDate        DateTime            @map("start_date")
+  endDate          DateTime?           @map("end_date")
+  totalVisits      Int?                @map("total_visits")
+  remainingVisits  Int?                @map("remaining_visits")
+  totalLessons     Int?                @map("total_lessons")
+  remainingLessons Int?                @map("remaining_lessons")
+  sourceCardId     String?             @map("source_card_id")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  member           Member              @relation(fields: [memberId], references: [id])
+  package          PackagePlan         @relation(fields: [packageId], references: [id])
+  sourceCard       MemberCard?         @relation("CardChanges", fields: [sourceCardId], references: [id])
+  changedCards     MemberCard[]        @relation("CardChanges")
+  appointments     Appointment[]
+  accessLogs       AccessLog[]
+  payments         Payment[]
+
+  @@index([memberId, status])
+  @@index([packageId])
+  @@index([endDate])
+  @@map("member_cards")
+}
+
+model Appointment {
+  id           String            @id @default(cuid())
+  memberId     String            @map("member_id")
+  trainerId    String            @map("trainer_id")
+  memberCardId String            @map("member_card_id")
+  startAt      DateTime          @map("start_at")
+  endAt        DateTime          @map("end_at")
+  status       AppointmentStatus @default(BOOKED)
+  cancelReason String?           @map("cancel_reason")
+  completedAt  DateTime?         @map("completed_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  member       Member            @relation(fields: [memberId], references: [id])
+  trainer      Trainer           @relation(fields: [trainerId], references: [id])
+  memberCard   MemberCard        @relation(fields: [memberCardId], references: [id])
+
+  @@index([memberId, startAt])
+  @@index([trainerId, startAt])
+  @@index([status])
+  @@map("appointments")
+}
+
+model AccessLog {
+  id           String          @id @default(cuid())
+  memberId     String?         @map("member_id")
+  memberCardId String?         @map("member_card_id")
+  direction    AccessDirection
+  result       AccessResult
+  reason       String?
+  happenedAt   DateTime        @default(now()) @map("happened_at")
+  operatorId   String?         @map("operator_id")
+  member       Member?         @relation(fields: [memberId], references: [id])
+  memberCard   MemberCard?     @relation(fields: [memberCardId], references: [id])
+  operator     Admin?          @relation(fields: [operatorId], references: [id])
+
+  @@index([memberId, happenedAt])
+  @@index([direction, result, happenedAt])
+  @@map("access_logs")
+}
+
+model Payment {
+  id           String         @id @default(cuid())
+  memberId     String         @map("member_id")
+  memberCardId String?        @map("member_card_id")
+  packageId    String?        @map("package_id")
+  amount       Decimal        @db.Decimal(10, 2)
+  method       PaymentMethod
+  bizType      PaymentBizType @map("biz_type")
+  paidAt       DateTime       @default(now()) @map("paid_at")
+  remark       String?
+  metadata     Json?
+  createdAt    DateTime       @default(now()) @map("created_at")
+  member       Member         @relation(fields: [memberId], references: [id])
+  memberCard   MemberCard?    @relation(fields: [memberCardId], references: [id])
+  package      PackagePlan?   @relation(fields: [packageId], references: [id])
+
+  @@index([memberId, paidAt])
+  @@index([bizType])
+  @@map("payments")
+}
+
+model MemberPresence {
+  id               String    @id @default(cuid())
+  memberId         String    @unique @map("member_id")
+  inGym            Boolean   @default(false) @map("in_gym")
+  lastInAt         DateTime? @map("last_in_at")
+  lastOutAt        DateTime? @map("last_out_at")
+  correctedById    String?   @map("corrected_by_id")
+  correctionReason String?   @map("correction_reason")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  member           Member    @relation(fields: [memberId], references: [id])
+  correctedBy      Admin?    @relation("PresenceCorrectedBy", fields: [correctedById], references: [id])
+
+  @@index([inGym])
+  @@map("member_presence")
+}

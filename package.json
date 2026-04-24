@@ -1,0 +1,23 @@
+{
+  "name": "yanglifang-gym-management",
+  "private": true,
+  "version": "0.1.0",
+  "description": "漾立方健身房管理系统 monorepo",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:api": "npm --workspace apps/api run build",
+    "build:web": "npm --workspace apps/web run build",
+    "test:api": "npm --workspace apps/api run test",
+    "prisma:generate": "npm --workspace apps/api run prisma:generate",
+    "prisma:migrate": "npm --workspace apps/api run prisma:migrate",
+    "prisma:seed": "npm --workspace apps/api run prisma:seed"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
