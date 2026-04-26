@@ -1,3 +1,12 @@
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+export const APP_TZ = process.env.APP_TZ ?? 'Asia/Shanghai';
+
 export function asDate(value: string | Date, field = 'date'): Date {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -13,7 +22,9 @@ export function addDays(date: Date, days: number): Date {
 }
 
 export function startOfToday(): Date {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
+  return dayjs().tz(APP_TZ).startOf('day').toDate();
+}
+
+export function endOfToday(): Date {
+  return dayjs().tz(APP_TZ).endOf('day').toDate();
 }

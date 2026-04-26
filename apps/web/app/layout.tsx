@@ -2,6 +2,7 @@ import 'antd/dist/reset.css';
 import './globals.css';
 import type { Metadata } from 'next';
 import React from 'react';
+import { AntdReact19Patch } from '@/components/antd-react19-patch';
 
 export const metadata: Metadata = {
   title: '漾立方健身房管理系统',
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <AntdReact19Patch />
+        {children}
+      </body>
     </html>
   );
 }

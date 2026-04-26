@@ -16,11 +16,13 @@ type AccessLog = {
 
 export default function AccessLogsPage() {
   const [memberId, setMemberId] = useState('');
+  const [keyword, setKeyword] = useState('');
   const [direction, setDirection] = useState<string | undefined>();
   const [result, setResult] = useState<string | undefined>();
 
   const query = new URLSearchParams();
   if (memberId) query.set('memberId', memberId);
+  if (keyword) query.set('keyword', keyword);
   if (direction) query.set('direction', direction);
   if (result) query.set('result', result);
 
@@ -46,6 +48,12 @@ export default function AccessLogsPage() {
         toolbar={
           <Space wrap>
             <Input allowClear placeholder="会员 ID" value={memberId} onChange={(event) => setMemberId(event.target.value)} />
+            <Input
+              allowClear
+              placeholder="姓名/手机号/会员号"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+            />
             <Select
               allowClear
               placeholder="方向"
@@ -69,7 +77,16 @@ export default function AccessLogsPage() {
                 { value: 'MANUAL', label: '手动' }
               ]}
             />
-            <Button onClick={() => setMemberId('')}>清空</Button>
+            <Button
+              onClick={() => {
+                setMemberId('');
+                setKeyword('');
+                setDirection(undefined);
+                setResult(undefined);
+              }}
+            >
+              清空
+            </Button>
           </Space>
         }
       />

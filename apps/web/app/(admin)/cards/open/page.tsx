@@ -1,9 +1,26 @@
 'use client';
 
 import { Button, DatePicker, Form, Input, InputNumber, Select, message } from 'antd';
-import { apiFetch } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { ApiList, apiFetch } from '@/lib/api';
+
+type MemberOption = { id: string; name: string; phone: string; memberNo: string };
+type PackageOption = { id: string; name: string; type: string; price: string; active: boolean };
 
 export default function OpenCardPage() {
+  const [form] = Form.useForm();
+  const [members, setMembers] = useState<MemberOption[]>([]);
+  const [packages, setPackages] = useState<PackageOption[]>([]);
+
+  useEffect(() => {
+    Promise.all([apiFetch<ApiList<MemberOption>>('/members?pageSize=100'), apiFetch<PackageOption[]>('/packages')])
+      .then(([memberPayload, packagePayload]) => {
+        setMembers(memberPayload.items);
+        setPackages(packagePayload.filter((item) => item.active));
+      })
+      .catch((error) => message.error(error.message));
+  }, []);
+
   async function submit(values: {
     memberId: string;
     packageId: string;
@@ -21,6 +38,7 @@ export default function OpenCardPage() {
         })
       });
       message.success('开卡成功');
+      form.resetFields(['startDate', 'amount', 'remark']);
     } catch (error) {
       message.error(error instanceof Error ? error.message : '开卡失败');
     }
@@ -32,12 +50,32 @@ export default function OpenCardPage() {
         <h1 className="page-title">开卡收银</h1>
       </div>
       <section className="content-band">
-        <Form layout="vertical" onFinish={submit} style={{ maxWidth: 620 }}>
+        <Form form={form} layout="vertical" onFinish={submit} style={{ maxWidth: 620 }}>
           <Form.Item name="memberId" label="会员 ID" rules={[{ required: true }]}>
-            <Input />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择会员"
+              options={members.map((item) => ({
+                value: item.id,
+                label: `${item.name} · ${item.phone} · ${item.memberNo}`
+              }))}
+            />
           </Form.Item>
           <Form.Item name="packageId" label="套餐 ID" rules={[{ required: true }]}>
-            <Input />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择套餐"
+              onChange={(value) => {
+                const plan = packages.find((item) => item.id === value);
+                if (plan) form.setFieldValue('amount', Number(plan.price));
+              }}
+              options={packages.map((item) => ({
+                value: item.id,
+                label: `${item.name} · ${item.type} · ${item.price}`
+              }))}
+            />
           </Form.Item>
           <Form.Item name="startDate" label="开卡日期">
             <DatePicker style={{ width: '100%' }} />

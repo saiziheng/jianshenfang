@@ -4,8 +4,8 @@ import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Select, Space, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { ResourceTable } from '@/components/resource-table';
+import { useMemo, useRef, useState } from 'react';
+import { ResourceTable, type ResourceTableRef } from '@/components/resource-table';
 import { apiFetch } from '@/lib/api';
 
 type Member = {
@@ -17,6 +17,7 @@ type Member = {
 };
 
 export default function MembersPage() {
+  const tableRef = useRef<ResourceTableRef>(null);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | undefined>();
   const [open, setOpen] = useState(false);
@@ -27,7 +28,7 @@ export default function MembersPage() {
       await apiFetch('/members', { method: 'POST', body: JSON.stringify(values) });
       message.success('会员已新增');
       setOpen(false);
-      setKeyword(values.phone);
+      tableRef.current?.refresh();
     } catch (error) {
       message.error(error instanceof Error ? error.message : '新增失败');
     }
@@ -53,6 +54,7 @@ export default function MembersPage() {
         </Button>
       </div>
       <ResourceTable<Member>
+        ref={tableRef}
         endpoint={endpoint}
         columns={columns}
         toolbar={

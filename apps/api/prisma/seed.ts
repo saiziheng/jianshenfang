@@ -4,16 +4,23 @@ import { hash } from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.admin.upsert({
+  const existingAdmin = await prisma.admin.findUnique({
     where: { username: 'admin' },
-    update: {},
-    create: {
-      username: 'admin',
-      passwordHash: await hash('admin123', 10),
-      name: '系统管理员',
-      role: Role.SUPER_ADMIN
-    }
+    select: { id: true }
   });
+  if (existingAdmin) {
+    console.log('管理员账号已存在，跳过创建。');
+  } else {
+    await prisma.admin.create({
+      data: {
+        username: 'admin',
+        passwordHash: await hash('admin123', 10),
+        name: '系统管理员',
+        role: Role.SUPER_ADMIN
+      }
+    });
+    console.log('默认管理员已创建，账号: admin，密码: admin123，请登录后立即修改密码！');
+  }
 
   await prisma.packagePlan.upsert({
     where: { id: 'seed-time-card' },

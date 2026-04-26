@@ -18,7 +18,9 @@ export class DashboardService {
       todayOut,
       activeMembers,
       todayAppointments,
-      cardWarnings,
+      expiringCards,
+      lowVisitCards,
+      lowLessonCards,
       latestAccessLogs
     ] = await this.prisma.$transaction([
       this.prisma.memberPresence.count({ where: { inGym: true } }),
@@ -35,15 +37,23 @@ export class DashboardService {
       this.prisma.memberCard.findMany({
         where: {
           status: CardStatus.ACTIVE,
-          OR: [
-            { endDate: { lte: warningDate } },
-            { remainingVisits: { lte: 3 } },
-            { remainingLessons: { lte: 3 } }
-          ]
+          endDate: { lte: warningDate }
         },
         take: 10,
         include: { member: true, package: true },
-        orderBy: { updatedAt: 'desc' }
+        orderBy: { endDate: 'asc' }
+      }),
+      this.prisma.memberCard.findMany({
+        where: { status: CardStatus.ACTIVE, remainingVisits: { lte: 3 } },
+        take: 10,
+        include: { member: true, package: true },
+        orderBy: { remainingVisits: 'asc' }
+      }),
+      this.prisma.memberCard.findMany({
+        where: { status: CardStatus.ACTIVE, remainingLessons: { lte: 3 } },
+        take: 10,
+        include: { member: true, package: true },
+        orderBy: { remainingLessons: 'asc' }
       }),
       this.prisma.accessLog.findMany({
         take: 10,
@@ -51,6 +61,12 @@ export class DashboardService {
         orderBy: { happenedAt: 'desc' }
       })
     ]);
+
+    const seen = new Map<string, typeof expiringCards[number]>();
+    for (const card of [...expiringCards, ...lowVisitCards, ...lowLessonCards]) {
+      if (!seen.has(card.id)) seen.set(card.id, card);
+    }
+    const cardWarnings = [...seen.values()];
 
     return {
       metrics: {
@@ -61,6 +77,11 @@ export class DashboardService {
         todayAppointments
       },
       cardWarnings,
+      warningGroups: {
+        expiringCards,
+        lowVisitCards,
+        lowLessonCards
+      },
       latestAccessLogs
     };
   }

@@ -231,6 +231,13 @@ npm run dev:web
 
 前端地址：`http://localhost:3000`
 
+### 安全注意事项
+
+- 生产环境必须设置 JWT_SECRET（长度 ≥ 48 字符）
+- 生产环境必须修改 docker-compose.yml 中的 MySQL root 密码
+- 首次部署后立即修改默认管理员密码 admin123
+- WEB_ORIGIN 必须设置为实际前端域名
+
 ## 已验证
 
 - `npm --workspace apps/api run prisma:generate`

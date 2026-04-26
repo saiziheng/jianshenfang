@@ -76,8 +76,10 @@ model Admin {
   name                String
   role                Role             @default(FRONT_DESK)
   active              Boolean          @default(true)
+  trainerId           String?          @unique @map("trainer_id")
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
+  trainer             Trainer?         @relation(fields: [trainerId], references: [id])
   accessLogs          AccessLog[]
   presenceCorrections MemberPresence[] @relation("PresenceCorrectedBy")
 
@@ -114,6 +116,7 @@ model Trainer {
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
+  admin        Admin?
   appointments Appointment[]
 
   @@index([active])
@@ -199,6 +202,7 @@ model AccessLog {
   direction    AccessDirection
   result       AccessResult
   reason       String?
+  metadata     Json?           @default("{}")
   happenedAt   DateTime        @default(now()) @map("happened_at")
   operatorId   String?         @map("operator_id")
   member       Member?         @relation(fields: [memberId], references: [id])

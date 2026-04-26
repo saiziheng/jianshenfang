@@ -26,7 +26,16 @@ export class PackagesService {
     const current = await this.ensureExists(id);
     const next = { ...current, ...dto };
     this.validateByType(next);
-    return this.prisma.packagePlan.update({ where: { id }, data: dto });
+    const resetData =
+      dto.type && dto.type !== current.type
+        ? {
+            [PackageType.TIME_CARD]: { totalVisits: null, totalLessons: null },
+            [PackageType.VISIT_CARD]: { totalLessons: null },
+            [PackageType.PT_CARD]: { totalVisits: null }
+          }[dto.type]
+        : {};
+
+    return this.prisma.packagePlan.update({ where: { id }, data: { ...dto, ...resetData } });
   }
 
   async ensureActive(id: string) {

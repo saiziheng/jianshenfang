@@ -3,8 +3,8 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, InputNumber, Modal, Select, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useMemo, useState } from 'react';
-import { ResourceTable } from '@/components/resource-table';
+import { useMemo, useRef, useState } from 'react';
+import { ResourceTable, type ResourceTableRef } from '@/components/resource-table';
 import { apiFetch } from '@/lib/api';
 
 type PackagePlan = {
@@ -19,6 +19,7 @@ type PackagePlan = {
 };
 
 export default function PackagesPage() {
+  const tableRef = useRef<ResourceTableRef>(null);
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<string | undefined>();
 
@@ -27,7 +28,7 @@ export default function PackagesPage() {
       await apiFetch('/packages', { method: 'POST', body: JSON.stringify(values) });
       message.success('套餐已新增');
       setOpen(false);
-      setType(values.type);
+      tableRef.current?.refresh();
     } catch (error) {
       message.error(error instanceof Error ? error.message : '新增失败');
     }
@@ -55,6 +56,7 @@ export default function PackagesPage() {
         </Button>
       </div>
       <ResourceTable<PackagePlan>
+        ref={tableRef}
         endpoint={`/packages${type ? `?type=${type}` : ''}`}
         columns={columns}
         toolbar={

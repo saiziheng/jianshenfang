@@ -14,6 +14,11 @@ type Dashboard = {
     todayAppointments: number;
   };
   cardWarnings: Array<{ id: string; member: { name: string }; package: { name: string }; endDate?: string }>;
+  warningGroups: {
+    expiringCards: Array<{ id: string; member: { name: string }; package: { name: string }; endDate?: string }>;
+    lowVisitCards: Array<{ id: string; member: { name: string }; package: { name: string }; remainingVisits?: number }>;
+    lowLessonCards: Array<{ id: string; member: { name: string }; package: { name: string }; remainingLessons?: number }>;
+  };
   latestAccessLogs: Array<{ id: string; member?: { name: string }; direction: string; result: string; reason?: string }>;
 };
 
@@ -43,14 +48,35 @@ export default function DashboardPage() {
       <section className="content-band" style={{ marginBottom: 18 }}>
         <h2 style={{ marginTop: 0 }}>到期/次数预警</h2>
         {data?.cardWarnings.length ? (
-          <List
-            dataSource={data.cardWarnings}
-            renderItem={(item) => (
-              <List.Item>
-                {item.member.name} · {item.package.name} · {item.endDate ? item.endDate.slice(0, 10) : '次数/课时预警'}
-              </List.Item>
-            )}
-          />
+          <>
+            <List
+              header="即将到期"
+              dataSource={data.warningGroups.expiringCards}
+              renderItem={(item) => (
+                <List.Item>
+                  {item.member.name} · {item.package.name} · {item.endDate ? item.endDate.slice(0, 10) : '-'}
+                </List.Item>
+              )}
+            />
+            <List
+              header="次卡低余额"
+              dataSource={data.warningGroups.lowVisitCards}
+              renderItem={(item) => (
+                <List.Item>
+                  {item.member.name} · {item.package.name} · 剩余 {item.remainingVisits ?? 0} 次
+                </List.Item>
+              )}
+            />
+            <List
+              header="私教课低余额"
+              dataSource={data.warningGroups.lowLessonCards}
+              renderItem={(item) => (
+                <List.Item>
+                  {item.member.name} · {item.package.name} · 剩余 {item.remainingLessons ?? 0} 课时
+                </List.Item>
+              )}
+            />
+          </>
         ) : (
           <Alert type="success" message="暂无预警" showIcon />
         )}

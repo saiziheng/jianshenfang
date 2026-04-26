@@ -8,6 +8,7 @@
     "apps/web"
   ],
   "scripts": {
+    "dev:all:windows": "start-dev.cmd",
     "dev:api": "npm --workspace apps/api run start:dev",
     "dev:web": "npm --workspace apps/web run dev",
     "build:api": "npm --workspace apps/api run build",

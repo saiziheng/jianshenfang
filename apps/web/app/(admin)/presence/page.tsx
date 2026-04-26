@@ -3,14 +3,16 @@
 import { Button, Form, Input, List, Select, message } from 'antd';
 import { useEffect, useState } from 'react';
 import { MetricGrid } from '@/components/metric-grid';
-import { apiFetch } from '@/lib/api';
+import { ApiList, apiFetch } from '@/lib/api';
 
 type Summary = { current: number; todayIn: number; todayOut: number; abnormalOut: number };
 type PresenceMember = { id: string; lastInAt?: string; member: { name: string; phone: string } };
+type MemberOption = { id: string; name: string; phone: string; memberNo: string };
 
 export default function PresencePage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [members, setMembers] = useState<PresenceMember[]>([]);
+  const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
 
   async function load() {
     const [nextSummary, nextMembers] = await Promise.all([
@@ -33,6 +35,9 @@ export default function PresencePage() {
 
   useEffect(() => {
     load().catch((error) => message.error(error.message));
+    apiFetch<ApiList<MemberOption>>('/members?pageSize=100')
+      .then((payload) => setMemberOptions(payload.items))
+      .catch((error) => message.error(error.message));
   }, []);
 
   return (
@@ -63,7 +68,16 @@ export default function PresencePage() {
         <h2 style={{ marginTop: 0 }}>手动纠偏</h2>
         <Form layout="inline" onFinish={correct}>
           <Form.Item name="memberId" rules={[{ required: true }]}>
-            <Input placeholder="会员 ID" />
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择会员"
+              style={{ width: 240 }}
+              options={memberOptions.map((item) => ({
+                value: item.id,
+                label: `${item.name} · ${item.phone} · ${item.memberNo}`
+              }))}
+            />
           </Form.Item>
           <Form.Item name="inGym" rules={[{ required: true }]}>
             <Select

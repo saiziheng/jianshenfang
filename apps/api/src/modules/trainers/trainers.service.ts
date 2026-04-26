@@ -9,7 +9,8 @@ import { UpdateTrainerDto } from './dto/update-trainer.dto';
 export class TrainersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateTrainerDto) {
+  async create(dto: CreateTrainerDto) {
+    await this.assertPhoneAvailable(dto.phone);
     return this.prisma.trainer.create({ data: dto });
   }
 
@@ -26,6 +27,7 @@ export class TrainersService {
 
   async update(id: string, dto: UpdateTrainerDto) {
     await this.ensureExists(id);
+    await this.assertPhoneAvailable(dto.phone, id);
     return this.prisma.trainer.update({ where: { id }, data: dto });
   }
 
@@ -41,5 +43,16 @@ export class TrainersService {
   private async ensureExists(id: string) {
     const count = await this.prisma.trainer.count({ where: { id } });
     if (!count) throw new BusinessException(ErrorCodes.TRAINER_NOT_FOUND, '教练不存在', 404);
+  }
+
+  private async assertPhoneAvailable(phone?: string, excludeId?: string) {
+    if (!phone) return;
+    const existing = await this.prisma.trainer.findFirst({
+      where: { phone, id: excludeId ? { not: excludeId } : undefined },
+      select: { id: true }
+    });
+    if (existing) {
+      throw new BusinessException(ErrorCodes.TRAINER_PHONE_DUPLICATE, '手机号已被注册', 409);
+    }
   }
 }

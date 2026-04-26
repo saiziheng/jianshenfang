@@ -4,6 +4,7 @@ export type CurrentAdmin = {
   sub: string;
   username: string;
   role: string;
+  trainerId?: string | null;
 };
 
 export const CurrentAdminUser = createParamDecorator(

@@ -8,6 +8,10 @@ export class QueryAccessLogsDto {
   memberId?: string;
 
   @IsOptional()
+  @IsString()
+  keyword?: string;
+
+  @IsOptional()
   @IsEnum(AccessDirection)
   direction?: AccessDirection;
 

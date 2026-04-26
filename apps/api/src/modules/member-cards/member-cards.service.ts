@@ -57,6 +57,8 @@ export class MemberCardsService {
   }
 
   async renewCard(dto: RenewCardDto) {
+    this.assertPaymentRemark(dto);
+
     return this.prisma.$transaction(async (tx) => {
       const card = await tx.memberCard.findUnique({
         where: { id: dto.memberCardId },
@@ -72,6 +74,9 @@ export class MemberCardsService {
         ? await tx.packagePlan.findUnique({ where: { id: dto.packageId } })
         : card.package;
       this.assertPackageCanUse(plan);
+      if (dto.packageId && card.type !== plan.type) {
+        throw new BusinessException(ErrorCodes.PACKAGE_RULE_INVALID, '续卡套餐类型必须与原卡一致');
+      }
 
       const data: Prisma.MemberCardUncheckedUpdateInput = this.buildRenewData(card, plan, dto);
       const updated = await tx.memberCard.update({
@@ -119,19 +124,34 @@ export class MemberCardsService {
       const plan = await tx.packagePlan.findUnique({ where: { id: dto.newPackageId } });
       this.assertPackageCanUse(plan);
 
+      const oldRemainingDays = oldCard.endDate
+        ? Math.max(0, Math.ceil((oldCard.endDate.getTime() - Date.now()) / 86400000))
+        : null;
+
       await tx.memberCard.update({
         where: { id: oldCard.id },
         data: { status: CardStatus.TRANSFERRED }
       });
 
       const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
+      const newCardData = this.buildInitialCardData(plan, startDate);
+      if (dto.carryOverVisits !== undefined) {
+        newCardData.remainingVisits = (newCardData.remainingVisits ?? 0) + dto.carryOverVisits;
+      }
+      if (dto.carryOverLessons !== undefined) {
+        newCardData.remainingLessons = (newCardData.remainingLessons ?? 0) + dto.carryOverLessons;
+      }
+      if (dto.carryOverDays !== undefined && dto.carryOverDays > 0) {
+        newCardData.endDate = addDays(newCardData.endDate ?? startDate, dto.carryOverDays);
+      }
+
       const newCard = await tx.memberCard.create({
         data: {
           memberId: oldCard.memberId,
           packageId: plan.id,
           cardNo: buildCardNo(),
           sourceCardId: oldCard.id,
-          ...this.buildInitialCardData(plan, startDate)
+          ...newCardData
         }
       });
 
@@ -144,7 +164,16 @@ export class MemberCardsService {
           method: dto.method,
           bizType: PaymentBizType.CHANGE_CARD,
           remark: dto.remark,
-          metadata: { oldCardId: oldCard.id }
+          metadata: {
+            oldCardId: oldCard.id,
+            oldRemainingVisits: oldCard.remainingVisits,
+            oldRemainingLessons: oldCard.remainingLessons,
+            oldRemainingDays,
+            oldEndDate: oldCard.endDate?.toISOString() ?? null,
+            carryOverVisits: dto.carryOverVisits ?? null,
+            carryOverLessons: dto.carryOverLessons ?? null,
+            carryOverDays: dto.carryOverDays ?? null
+          }
         }
       });
 
@@ -153,6 +182,8 @@ export class MemberCardsService {
   }
 
   async addBalance(dto: AddCardBalanceDto) {
+    this.assertPaymentRemark(dto);
+
     return this.prisma.$transaction(async (tx) => {
       const card = await tx.memberCard.findUnique({
         where: { id: dto.memberCardId },
@@ -258,7 +289,7 @@ export class MemberCardsService {
       return {
         totalVisits: { increment: addVisits },
         remainingVisits: { increment: addVisits },
-        endDate: plan.durationDays ? addDays(new Date(), plan.durationDays) : undefined
+        endDate: this.extendEndDate(card.endDate, plan.durationDays)
       };
     }
 
@@ -267,8 +298,20 @@ export class MemberCardsService {
     return {
       totalLessons: { increment: addLessons },
       remainingLessons: { increment: addLessons },
-      endDate: plan.durationDays ? addDays(new Date(), plan.durationDays) : undefined
+      endDate: this.extendEndDate(card.endDate, plan.durationDays)
     };
+  }
+
+  private extendEndDate(currentEnd: Date | null, days: number | null | undefined): Date | undefined {
+    if (!days) return undefined;
+    const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
+    return addDays(base, days);
+  }
+
+  private assertPaymentRemark(dto: { amount: number; remark?: string }) {
+    if (dto.amount === 0 && (!dto.remark || dto.remark.trim().length < 4)) {
+      throw new BusinessException(ErrorCodes.PAYMENT_REMARK_REQUIRED, '零元操作必须填写不少于 4 字的备注说明');
+    }
   }
 
   private assertMemberCanUse(member: { status: MemberStatus } | null) {

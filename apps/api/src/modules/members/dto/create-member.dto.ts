@@ -1,11 +1,11 @@
-import { IsDateString, IsOptional, IsString, Length } from 'class-validator';
+import { IsDateString, IsOptional, IsString, Matches } from 'class-validator';
 
 export class CreateMemberDto {
   @IsString()
   name!: string;
 
   @IsString()
-  @Length(6, 32)
+  @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式错误' })
   phone!: string;
 
   @IsOptional()

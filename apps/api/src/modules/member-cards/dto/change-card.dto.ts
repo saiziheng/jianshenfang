@@ -1,6 +1,6 @@
 import { PaymentMethod } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 
 export class ChangeCardDto {
   @IsString()
@@ -24,4 +24,22 @@ export class ChangeCardDto {
   @IsOptional()
   @IsString()
   remark?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  carryOverVisits?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  carryOverLessons?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  carryOverDays?: number;
 }

@@ -19,8 +19,17 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     cache: 'no-store'
   });
   const payload = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ylf_token');
+      localStorage.removeItem('ylf_admin');
+      window.location.assign('/login');
+    }
+    throw new Error('登录已过期，请重新登录');
+  }
   if (!response.ok) {
-    throw new Error(payload.message ?? '请求失败');
+    const msg = Array.isArray(payload.message) ? payload.message.join('; ') : (payload.message ?? '请求失败');
+    throw new Error(msg);
   }
   return payload as T;
 }

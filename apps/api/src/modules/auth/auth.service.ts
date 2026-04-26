@@ -27,14 +27,15 @@ export class AuthService {
       throw new BusinessException(ErrorCodes.AUTH_INVALID_CREDENTIALS, '用户名或密码错误', 401);
     }
 
-    const payload = { sub: admin.id, username: admin.username, role: admin.role };
+    const payload = { sub: admin.id, username: admin.username, role: admin.role, trainerId: admin.trainerId };
     return {
       accessToken: await this.jwt.signAsync(payload),
       admin: {
         id: admin.id,
         username: admin.username,
         name: admin.name,
-        role: admin.role
+        role: admin.role,
+        trainerId: admin.trainerId
       }
     };
   }

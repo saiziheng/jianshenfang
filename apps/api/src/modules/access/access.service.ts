@@ -20,6 +20,8 @@ export class AccessService {
   async verify(dto: AccessVerifyDto, operatorId?: string) {
     return this.prisma.$transaction(async (tx) => {
       const happenedAt = dto.happenedAt ? new Date(dto.happenedAt) : new Date();
+      await tx.$executeRaw`SELECT id FROM members WHERE id = ${dto.memberId} FOR UPDATE`;
+
       const member = await tx.member.findUnique({ where: { id: dto.memberId } });
       if (!member) {
         return this.writeDenied(tx, dto, happenedAt, '会员不存在', ErrorCodes.MEMBER_NOT_FOUND, operatorId);
@@ -62,12 +64,27 @@ export class AccessService {
       }
 
       const alreadyIn = Boolean(presence?.inGym);
-      const card = await this.findCurrentAccessCard(tx, dto.memberId, happenedAt, alreadyIn);
+      if (alreadyIn) {
+        const reason = '重复入场，人数与次数不重复计算';
+        const log = await tx.accessLog.create({
+          data: {
+            memberId: dto.memberId,
+            direction: AccessDirection.IN,
+            result: AccessResult.ALLOWED,
+            reason,
+            happenedAt,
+            operatorId
+          }
+        });
+        return { allowed: true, reason, log };
+      }
+
+      const card = await this.findCurrentAccessCard(tx, dto.memberId, happenedAt, false);
       if (!card) {
         return this.writeDenied(tx, dto, happenedAt, '无可用门禁会员卡', ErrorCodes.CARD_NOT_ACTIVE, operatorId);
       }
 
-      if (!alreadyIn && card.type === PackageType.VISIT_CARD) {
+      if (card.type === PackageType.VISIT_CARD) {
         const deducted = await tx.memberCard.updateMany({
           where: {
             id: card.id,
@@ -80,18 +97,13 @@ export class AccessService {
         }
       }
 
-      if (presence && !alreadyIn) {
-        await tx.memberPresence.update({
-          where: { memberId: dto.memberId },
-          data: { inGym: true, lastInAt: happenedAt }
-        });
-      } else if (!presence) {
-        await tx.memberPresence.create({
-          data: { memberId: dto.memberId, inGym: true, lastInAt: happenedAt }
-        });
-      }
+      await tx.memberPresence.upsert({
+        where: { memberId: dto.memberId },
+        create: { memberId: dto.memberId, inGym: true, lastInAt: happenedAt },
+        update: { inGym: true, lastInAt: happenedAt }
+      });
 
-      const reason = alreadyIn ? '重复入场，人数与次数不重复计算' : '正常入场';
+      const reason = '正常入场';
       const log = await tx.accessLog.create({
         data: {
           memberId: dto.memberId,
@@ -104,14 +116,23 @@ export class AccessService {
         }
       });
       return { allowed: true, reason, log };
-    });
+    }, { isolationLevel: 'Serializable' });
   }
 
   async logs(query: QueryAccessLogsDto) {
     const where: Prisma.AccessLogWhereInput = {
       memberId: query.memberId,
       direction: query.direction,
-      result: query.result
+      result: query.result,
+      member: query.keyword
+        ? {
+            OR: [
+              { name: { contains: query.keyword } },
+              { phone: { contains: query.keyword } },
+              { memberNo: { contains: query.keyword } }
+            ]
+          }
+        : undefined
     };
     const skip = (query.page - 1) * query.pageSize;
     const [items, total] = await this.prisma.$transaction([
@@ -166,7 +187,7 @@ export class AccessService {
           }
         ]
       },
-      orderBy: [{ endDate: 'asc' }, { createdAt: 'desc' }]
+      orderBy: [{ endDate: { sort: 'asc', nulls: 'last' } }, { createdAt: 'desc' }]
     });
   }
 
@@ -183,7 +204,8 @@ export class AccessService {
         memberId: dto.memberId,
         direction: dto.direction,
         result: AccessResult.DENIED,
-        reason: `${code}:${reason}`,
+        reason,
+        metadata: { code },
         happenedAt,
         operatorId
       }

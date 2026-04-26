@@ -20,6 +20,7 @@ export class AccessController {
   }
 
   @Get('logs')
+  @Roles(AppRole.SUPER_ADMIN, AppRole.FRONT_DESK)
   logs(@Query() query: QueryAccessLogsDto) {
     return this.access.logs(query);
   }

@@ -14,6 +14,7 @@ export class MembersController {
   constructor(private readonly members: MembersService) {}
 
   @Get()
+  @Roles(AppRole.SUPER_ADMIN, AppRole.FRONT_DESK)
   list(@Query() query: QueryMembersDto) {
     return this.members.list(query);
   }
@@ -25,6 +26,7 @@ export class MembersController {
   }
 
   @Get(':id')
+  @Roles(AppRole.SUPER_ADMIN, AppRole.FRONT_DESK)
   detail(@Param('id') id: string) {
     return this.members.detail(id);
   }

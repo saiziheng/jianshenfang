@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { CardStatus, MemberStatus, Prisma } from '@prisma/client';
+import dayjs from 'dayjs';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BusinessException } from '../../common/business-error';
 import { ErrorCodes } from '../../common/error-codes';
+import { APP_TZ } from '../../common/utils/date';
 import { CreateMemberDto } from './dto/create-member.dto';
 import { QueryMembersDto } from './dto/query-members.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
@@ -12,29 +14,43 @@ export class MembersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateMemberDto) {
-    const memberNo = await this.nextMemberNo();
-    return this.prisma.member.create({
-      data: {
-        memberNo,
-        name: dto.name,
-        phone: dto.phone,
-        gender: dto.gender,
-        birthday: dto.birthday ? new Date(dto.birthday) : undefined,
-        note: dto.note
+    await this.assertPhoneAvailable(dto.phone);
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const memberNo = await this.nextMemberNo(attempt);
+        return await this.prisma.member.create({
+          data: {
+            memberNo,
+            name: dto.name,
+            phone: dto.phone,
+            gender: dto.gender,
+            birthday: dto.birthday ? new Date(dto.birthday) : undefined,
+            note: dto.note
+          }
+        });
+      } catch (e: any) {
+        if (e?.code !== 'P2002' || attempt === 4) throw e;
       }
-    });
+    }
   }
 
   async list(query: QueryMembersDto) {
     const where: Prisma.MemberWhereInput = {
       status: query.status,
-      OR: query.keyword
-        ? [
-            { name: { contains: query.keyword } },
-            { phone: { contains: query.keyword } },
-            { memberNo: { contains: query.keyword } }
-          ]
-        : undefined
+      ...(query.keyword
+        ? {
+            AND: [
+              {
+                OR: [
+                  { name: { contains: query.keyword } },
+                  { phone: { contains: query.keyword } },
+                  { memberNo: { contains: query.keyword } }
+                ]
+              }
+            ]
+          }
+        : {})
     };
     const skip = (query.page - 1) * query.pageSize;
     const [items, total] = await this.prisma.$transaction([
@@ -46,8 +62,7 @@ export class MembersService {
         include: {
           cards: {
             where: { status: CardStatus.ACTIVE },
-            orderBy: { createdAt: 'desc' },
-            take: 1
+            orderBy: { createdAt: 'desc' }
           },
           presence: true
         }
@@ -110,6 +125,7 @@ export class MembersService {
 
   async update(id: string, dto: UpdateMemberDto) {
     await this.ensureExists(id);
+    await this.assertPhoneAvailable(dto.phone, id);
     return this.prisma.member.update({
       where: { id },
       data: {
@@ -137,9 +153,20 @@ export class MembersService {
     if (!count) throw new BusinessException(ErrorCodes.MEMBER_NOT_FOUND, '会员不存在', 404);
   }
 
-  private async nextMemberNo() {
+  private async assertPhoneAvailable(phone?: string, excludeId?: string) {
+    if (!phone) return;
+    const existing = await this.prisma.member.findFirst({
+      where: { phone, id: excludeId ? { not: excludeId } : undefined },
+      select: { id: true }
+    });
+    if (existing) {
+      throw new BusinessException(ErrorCodes.MEMBER_PHONE_DUPLICATE, '手机号已被注册', 409);
+    }
+  }
+
+  private async nextMemberNo(attempt: number) {
     const count = await this.prisma.member.count();
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    return `M${date}${String(count + 1).padStart(5, '0')}`;
+    const date = dayjs().tz(APP_TZ).format('YYYYMMDD');
+    return `M${date}${String(count + 1 + attempt).padStart(5, '0')}`;
   }
 }
