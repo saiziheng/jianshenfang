@@ -26,12 +26,14 @@ type TrainerOption = { id: string; name: string; active: boolean };
 
 export default function AppointmentsPage() {
   const tableRef = useRef<ResourceTableRef>(null);
+  const [form] = Form.useForm();
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<string | undefined>();
   const [trainerId, setTrainerId] = useState<string | undefined>();
   const [status, setStatus] = useState<string | undefined>();
   const [members, setMembers] = useState<MemberOption[]>([]);
   const [trainers, setTrainers] = useState<TrainerOption[]>([]);
+  const selectedMemberId = Form.useWatch('memberId', form);
 
   useEffect(() => {
     Promise.all([apiFetch<ApiList<MemberOption>>('/members?pageSize=100'), apiFetch<TrainerOption[]>('/trainers')])
@@ -150,12 +152,13 @@ export default function AppointmentsPage() {
         }
       />
       <Modal title="新建预约" open={open} onCancel={() => setOpen(false)} footer={null}>
-        <Form layout="vertical" onFinish={create}>
+        <Form form={form} layout="vertical" onFinish={create}>
           <Form.Item name="memberId" label="会员 ID" rules={[{ required: true }]}>
             <Select
               showSearch
               optionFilterProp="label"
               placeholder="选择会员"
+              onChange={() => form.setFieldValue('memberCardId', undefined)}
               options={members.map((item) => ({
                 value: item.id,
                 label: `${item.name} · ${item.phone}`
@@ -175,14 +178,13 @@ export default function AppointmentsPage() {
               showSearch
               optionFilterProp="label"
               placeholder="选择私教卡"
-              options={members.flatMap((member) =>
-                member.cards
-                  .filter((card) => card.type === 'PT_CARD')
-                  .map((card) => ({
-                    value: card.id,
-                    label: `${member.name} · ${card.cardNo} · 剩余 ${card.remainingLessons ?? 0} 课时`
-                  }))
-              )}
+              disabled={!selectedMemberId}
+              options={(members.find((member) => member.id === selectedMemberId)?.cards ?? [])
+                .filter((card) => card.type === 'PT_CARD')
+                .map((card) => ({
+                  value: card.id,
+                  label: `${card.cardNo} · 剩余 ${card.remainingLessons ?? 0} 课时`
+                }))}
             />
           </Form.Item>
           <Form.Item name="range" label="上课时间" rules={[{ required: true }]}>

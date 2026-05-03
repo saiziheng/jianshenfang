@@ -169,6 +169,12 @@
 
 ## 11. 启动说明
 
+本地环境要求：
+
+- Node.js 20.9+（根目录 `package.json` 已声明 engines）
+- Docker / Docker Compose（用于启动 MySQL 8.4）
+- npm（项目使用 npm workspaces 与 `package-lock.json`）
+
 1. 安装依赖：
 
 ```bash
@@ -196,13 +202,29 @@ docker compose up -d mysql
 npm run prisma:generate
 ```
 
-5. 迁移数据库：
+5. 初始化数据库结构：
 
 ```bash
 npm run prisma:migrate
 ```
 
-6. 写入默认管理员与示例套餐：
+已有本地库需要完全重建时，可在确认不需要保留数据后执行：
+
+```bash
+cd apps/api
+npx prisma migrate reset
+```
+
+如果本地库此前已经用 `prisma db push` 初始化并且需要保留数据，先确认当前表结构与 `schema.prisma` 一致，再将现有迁移标记为已应用：
+
+```bash
+cd apps/api
+npx prisma migrate resolve --applied 20260425000000_initial
+npx prisma migrate resolve --applied 20260426000000_link_admin_trainer
+npx prisma migrate resolve --applied 20260426000001_access_log_metadata
+```
+
+6. 写入默认管理员与示例套餐（必须执行，否则没有 `admin / admin123` 和基础套餐数据）：
 
 ```bash
 npm run prisma:seed

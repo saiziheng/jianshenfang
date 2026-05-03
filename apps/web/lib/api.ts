@@ -13,12 +13,19 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store'
-  });
-  const payload = await response.json().catch(() => ({}));
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      cache: 'no-store'
+    });
+  } catch {
+    throw new Error(`无法连接后端服务，请确认 API 已启动：${API_BASE}`);
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const payload = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
   if (response.status === 401) {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ylf_token');
@@ -28,7 +35,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     throw new Error('登录已过期，请重新登录');
   }
   if (!response.ok) {
-    const msg = Array.isArray(payload.message) ? payload.message.join('; ') : (payload.message ?? '请求失败');
+    const msg = Array.isArray(payload.message)
+      ? payload.message.join('; ')
+      : (payload.message ?? `请求失败（HTTP ${response.status}）`);
     throw new Error(msg);
   }
   return payload as T;

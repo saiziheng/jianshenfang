@@ -142,7 +142,7 @@ export class MemberCardsService {
         newCardData.remainingLessons = (newCardData.remainingLessons ?? 0) + dto.carryOverLessons;
       }
       if (dto.carryOverDays !== undefined && dto.carryOverDays > 0) {
-        newCardData.endDate = addDays(newCardData.endDate ?? startDate, dto.carryOverDays);
+        newCardData.endDate = addDays(new Date(newCardData.endDate ?? startDate), dto.carryOverDays);
       }
 
       const newCard = await tx.memberCard.create({
