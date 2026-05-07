@@ -120,6 +120,7 @@ select {
 }
 
 .admin-logo-title {
+  display: block;
   color: var(--color-text);
   font-size: 17px;
   font-weight: 600;
@@ -127,6 +128,7 @@ select {
 }
 
 .admin-logo-subtitle {
+  display: block;
   color: var(--color-text-3);
   font-size: 12px;
 }
@@ -303,7 +305,13 @@ select {
   border-radius: 999px;
   color: #fff;
   font-size: 12px;
+  font-style: normal;
   font-weight: 600;
+}
+
+.metric-card .skeleton-card {
+  min-height: 0;
+  padding: 0;
 }
 
 .metric-delta.positive {
