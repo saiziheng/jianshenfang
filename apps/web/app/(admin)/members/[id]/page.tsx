@@ -207,13 +207,14 @@ export default function MemberDetailPage() {
                       rowKey="id"
                       columns={cardColumns}
                       dataSource={member.cards}
+                      scroll={{ x: 'max-content' }}
                       pagination={false}
                       locale={{ emptyText: <EmptyState icon={CreditCard} title="暂无持卡记录" description="开卡后会显示在这里" /> }}
                     />
                     <h2 className="section-title" style={{ marginTop: 24 }}>
                       支付流水
                     </h2>
-                    <Table rowKey="id" columns={paymentColumns} dataSource={member.payments} pagination={false} />
+                    <Table rowKey="id" columns={paymentColumns} dataSource={member.payments} scroll={{ x: 'max-content' }} pagination={false} />
                   </div>
                 )
               },
