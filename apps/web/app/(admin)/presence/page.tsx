@@ -1,8 +1,11 @@
 'use client';
 
-import { Button, Form, Input, List, Select, message } from 'antd';
+import { Button, Form, Input, List, Select } from 'antd';
+import { Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
 import { MetricGrid } from '@/components/metric-grid';
+import { toast } from '@/components/toast';
 import { ApiList, apiFetch } from '@/lib/api';
 
 type Summary = { current: number; todayIn: number; todayOut: number; abnormalOut: number };
@@ -26,18 +29,18 @@ export default function PresencePage() {
   async function correct(values: { memberId: string; inGym: boolean; reason: string }) {
     try {
       await apiFetch('/presence/corrections', { method: 'POST', body: JSON.stringify(values) });
-      message.success('纠偏已记录');
+      toast.success('纠偏已记录');
       await load();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '纠偏失败');
+      toast.error(error instanceof Error ? error.message : '纠偏失败');
     }
   }
 
   useEffect(() => {
-    load().catch((error) => message.error(error.message));
+    load().catch((error) => toast.error(error.message));
     apiFetch<ApiList<MemberOption>>('/members?pageSize=100')
       .then((payload) => setMemberOptions(payload.items))
-      .catch((error) => message.error(error.message));
+      .catch((error) => toast.error(error.message));
   }, []);
 
   return (
@@ -46,6 +49,7 @@ export default function PresencePage() {
         <h1 className="page-title">实时人数看板</h1>
       </div>
       <MetricGrid
+        loading={!summary}
         metrics={[
           { label: '当前在馆', value: summary?.current ?? 0 },
           { label: '今日入场', value: summary?.todayIn ?? 0 },
@@ -55,14 +59,18 @@ export default function PresencePage() {
       />
       <section className="content-band" style={{ marginBottom: 18 }}>
         <h2 style={{ marginTop: 0 }}>在馆会员</h2>
-        <List
-          dataSource={members}
-          renderItem={(item) => (
-            <List.Item>
-              {item.member.name} · {item.member.phone} · {item.lastInAt?.slice(0, 16).replace('T', ' ')}
-            </List.Item>
-          )}
-        />
+        {members.length ? (
+          <List
+            dataSource={members}
+            renderItem={(item) => (
+              <List.Item>
+                {item.member.name} · {item.member.phone} · {item.lastInAt?.slice(0, 16).replace('T', ' ')}
+              </List.Item>
+            )}
+          />
+        ) : (
+          <EmptyState icon={Users} title="暂无在馆会员" description="当前场馆没有已记录在馆的会员" />
+        )}
       </section>
       <section className="content-band">
         <h2 style={{ marginTop: 0 }}>手动纠偏</h2>

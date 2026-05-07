@@ -1,9 +1,11 @@
 'use client';
 
-import { Button, Form, Input, Select, Space, Tag, message } from 'antd';
+import { Button, Form, Input, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FilterBar } from '@/components/filter-bar';
 import { ResourceTable, type ResourceTableRef } from '@/components/resource-table';
+import { toast } from '@/components/toast';
 import { ApiList, apiFetch } from '@/lib/api';
 
 type AccessLog = {
@@ -16,6 +18,17 @@ type AccessLog = {
 };
 type MemberOption = { id: string; name: string; phone: string; memberNo: string };
 
+const directionText: Record<string, string> = {
+  IN: '入场',
+  OUT: '离场'
+};
+
+const resultText: Record<string, string> = {
+  ALLOWED: '放行',
+  DENIED: '拒绝',
+  MANUAL: '手动'
+};
+
 export default function AccessLogsPage() {
   const tableRef = useRef<ResourceTableRef>(null);
   const [memberId, setMemberId] = useState('');
@@ -27,7 +40,7 @@ export default function AccessLogsPage() {
   useEffect(() => {
     apiFetch<ApiList<MemberOption>>('/members?pageSize=100')
       .then((payload) => setMemberOptions(payload.items))
-      .catch((error) => message.error(error instanceof Error ? error.message : '会员列表加载失败'));
+      .catch((error) => toast.error(error instanceof Error ? error.message : '会员列表加载失败'));
   }, []);
 
   async function verify(values: { memberId: string; direction: 'IN' | 'OUT' }) {
@@ -36,10 +49,10 @@ export default function AccessLogsPage() {
         method: 'POST',
         body: JSON.stringify(values)
       });
-      message[result.allowed ? 'success' : 'warning'](result.reason);
+      toast[result.allowed ? 'success' : 'warning'](result.reason);
       tableRef.current?.refresh();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '门禁模拟失败');
+      toast.error(error instanceof Error ? error.message : '门禁模拟失败');
     }
   }
 
@@ -52,8 +65,16 @@ export default function AccessLogsPage() {
   const columns = useMemo<ColumnsType<AccessLog>>(
     () => [
       { title: '会员', dataIndex: ['member', 'name'] },
-      { title: '方向', dataIndex: 'direction' },
-      { title: '结果', dataIndex: 'result', render: (value) => <Tag color={value === 'ALLOWED' ? 'green' : 'red'}>{value}</Tag> },
+      { title: '方向', dataIndex: 'direction', render: (value: string) => directionText[value] ?? value },
+      {
+        title: '结果',
+        dataIndex: 'result',
+        render: (value: string) => (
+          <span className={`chip ${value === 'ALLOWED' ? 'chip-success' : value === 'DENIED' ? 'chip-danger' : 'chip-neutral'}`}>
+            {resultText[value] ?? value}
+          </span>
+        )
+      },
       { title: '原因', dataIndex: 'reason' },
       { title: '时间', dataIndex: 'happenedAt', render: (value) => value.slice(0, 16).replace('T', ' ') }
     ],
@@ -97,14 +118,32 @@ export default function AccessLogsPage() {
         ref={tableRef}
         endpoint={`/access/logs?${query.toString()}`}
         columns={columns}
+        emptyTitle="暂无门禁记录"
+        emptyDescription="清空筛选条件后可查看全部通行记录"
         toolbar={
-          <Space wrap>
-            <Input allowClear placeholder="会员 ID" value={memberId} onChange={(event) => setMemberId(event.target.value)} />
+          <FilterBar
+            searchValue={keyword}
+            searchPlaceholder="搜索姓名/手机号/会员号"
+            onSearchChange={setKeyword}
+            onReset={() => {
+              setMemberId('');
+              setKeyword('');
+              setDirection(undefined);
+              setResult(undefined);
+            }}
+            chips={[
+              ...(memberId ? [{ key: 'memberId', label: `会员ID：${memberId}`, onClose: () => setMemberId('') }] : []),
+              ...(direction ? [{ key: 'direction', label: `方向：${directionText[direction] ?? direction}`, onClose: () => setDirection(undefined) }] : []),
+              ...(result ? [{ key: 'result', label: `结果：${resultText[result] ?? result}`, onClose: () => setResult(undefined) }] : [])
+            ]}
+            filters={
+              <>
             <Input
               allowClear
-              placeholder="姓名/手机号/会员号"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
+              placeholder="会员 ID"
+              style={{ width: 150 }}
+              value={memberId}
+              onChange={(event) => setMemberId(event.target.value)}
             />
             <Select
               allowClear
@@ -129,17 +168,9 @@ export default function AccessLogsPage() {
                 { value: 'MANUAL', label: '手动' }
               ]}
             />
-            <Button
-              onClick={() => {
-                setMemberId('');
-                setKeyword('');
-                setDirection(undefined);
-                setResult(undefined);
-              }}
-            >
-              清空
-            </Button>
-          </Space>
+              </>
+            }
+          />
         }
       />
     </>
