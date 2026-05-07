@@ -1,8 +1,9 @@
 'use client';
 
-import { ReloadOutlined } from '@ant-design/icons';
-import { Button, Table, Tooltip, message } from 'antd';
+import { Button, Table, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import type { TableProps } from 'antd';
+import { RefreshCw } from 'lucide-react';
 import {
   forwardRef,
   useCallback,
@@ -13,6 +14,9 @@ import {
   type ReactNode,
   type Ref
 } from 'react';
+import { EmptyState } from '@/components/empty-state';
+import { TableSkeleton } from '@/components/skeletons';
+import { toast } from '@/components/toast';
 import { apiFetch } from '@/lib/api';
 
 export type ResourceTableRef = {
@@ -33,13 +37,16 @@ type Props<T extends object> = {
   columns: ColumnsType<T>;
   rowKey?: string | ((record: T) => string);
   toolbar?: ReactNode;
+  onRow?: TableProps<T>['onRow'];
+  emptyTitle?: string;
+  emptyDescription?: string;
 };
 
 function ResourceTableInner<T extends object>(
-  { endpoint, columns, rowKey = 'id', toolbar }: Props<T>,
+  { endpoint, columns, rowKey = 'id', toolbar, onRow, emptyTitle = '暂无数据', emptyDescription = '调整筛选条件后再试试' }: Props<T>,
   ref: Ref<ResourceTableRef>
 ) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -66,7 +73,7 @@ function ResourceTableInner<T extends object>(
         setPageSize(payload.pageSize);
       }
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载失败');
+      toast.error(error instanceof Error ? error.message : '加载失败');
     } finally {
       setLoading(false);
     }
@@ -79,30 +86,46 @@ function ResourceTableInner<T extends object>(
   }, [load]);
 
   return (
-    <section className="content-band">
-      <div className="toolbar" style={{ justifyContent: 'space-between', marginBottom: 14 }}>
-        <div className="toolbar">{toolbar}</div>
-        <Tooltip title="刷新">
-          <Button aria-label="刷新" icon={<ReloadOutlined />} onClick={() => void load()} />
-        </Tooltip>
-      </div>
-      <Table<T>
-        rowKey={rowKey}
-        columns={columns}
-        dataSource={rows}
-        loading={loading}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          onChange: (nextPage, nextPageSize) => {
-            setPage(nextPage);
-            setPageSize(nextPageSize);
-          }
-        }}
-      />
-    </section>
+    <>
+      {toolbar}
+      <section className="app-card resource-table-card">
+        <div className="table-card-header">
+          <Tooltip title="刷新">
+            <Button
+              aria-label="刷新"
+              className="icon-button"
+              icon={<RefreshCw size={16} strokeWidth={1.75} />}
+              onClick={() => void load()}
+            />
+          </Tooltip>
+        </div>
+        {loading ? (
+          <TableSkeleton columns={columns.length} />
+        ) : (
+          <Table<T>
+            rowKey={rowKey}
+            columns={columns}
+            dataSource={rows}
+            onRow={onRow}
+            scroll={{ x: 'max-content' }}
+            locale={{
+              emptyText: <EmptyState title={emptyTitle} description={emptyDescription} />
+            }}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              showTotal: (nextTotal) => `共 ${nextTotal} 条`,
+              onChange: (nextPage, nextPageSize) => {
+                setPage(nextPage);
+                setPageSize(nextPageSize);
+              }
+            }}
+          />
+        )}
+      </section>
+    </>
   );
 }
 
