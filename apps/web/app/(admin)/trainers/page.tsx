@@ -1,10 +1,11 @@
 'use client';
 
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Modal, Tag, message } from 'antd';
+import { Button, Form, Input, Modal } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useRef, useState } from 'react';
+import { FilterBar } from '@/components/filter-bar';
 import { ResourceTable, type ResourceTableRef } from '@/components/resource-table';
+import { toast } from '@/components/toast';
 import { apiFetch } from '@/lib/api';
 
 type Trainer = { id: string; name: string; phone: string; specialties?: string; active: boolean };
@@ -17,11 +18,11 @@ export default function TrainersPage() {
   async function create(values: { name: string; phone: string; specialties?: string }) {
     try {
       await apiFetch('/trainers', { method: 'POST', body: JSON.stringify(values) });
-      message.success('教练已新增');
+      toast.success('教练已新增');
       setOpen(false);
       tableRef.current?.refresh();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '新增失败');
+      toast.error(error instanceof Error ? error.message : '新增失败');
     }
   }
 
@@ -30,7 +31,11 @@ export default function TrainersPage() {
       { title: '姓名', dataIndex: 'name' },
       { title: '手机', dataIndex: 'phone' },
       { title: '专长', dataIndex: 'specialties' },
-      { title: '状态', dataIndex: 'active', render: (value) => <Tag color={value ? 'green' : 'red'}>{value ? '启用' : '停用'}</Tag> }
+      {
+        title: '状态',
+        dataIndex: 'active',
+        render: (value: boolean) => <span className={`chip ${value ? 'chip-success' : 'chip-danger'}`}>{value ? '启用' : '停用'}</span>
+      }
     ],
     []
   );
@@ -39,15 +44,23 @@ export default function TrainersPage() {
     <>
       <div className="page-header">
         <h1 className="page-title">教练管理</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
-          新增教练
-        </Button>
       </div>
       <ResourceTable<Trainer>
         ref={tableRef}
         endpoint={`/trainers?keyword=${encodeURIComponent(keyword)}`}
         columns={columns}
-        toolbar={<Input allowClear placeholder="姓名/手机" value={keyword} onChange={(event) => setKeyword(event.target.value)} />}
+        emptyTitle="暂无教练"
+        emptyDescription="点击新增教练，建立可预约的私教团队"
+        toolbar={
+          <FilterBar
+            searchValue={keyword}
+            searchPlaceholder="搜索姓名/手机号"
+            onSearchChange={setKeyword}
+            onReset={() => setKeyword('')}
+            actionLabel="新增教练"
+            onAction={() => setOpen(true)}
+          />
+        }
       />
       <Modal title="新增教练" open={open} onCancel={() => setOpen(false)} footer={null}>
         <Form layout="vertical" onFinish={create}>
@@ -60,9 +73,12 @@ export default function TrainersPage() {
           <Form.Item name="specialties" label="专长">
             <Input />
           </Form.Item>
-          <Button type="primary" htmlType="submit">
-            保存
-          </Button>
+          <div className="toolbar" style={{ justifyContent: 'flex-end' }}>
+            <Button onClick={() => setOpen(false)}>取消</Button>
+            <Button type="primary" htmlType="submit">
+              保存
+            </Button>
+          </div>
         </Form>
       </Modal>
     </>
