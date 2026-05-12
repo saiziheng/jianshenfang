@@ -1,0 +1,19 @@
+{
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "npm --workspace apps/web run build",
+  "devCommand": "npm --workspace apps/web run dev",
+  "outputDirectory": "apps/web/.next",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "course.17szh.cn"
+        }
+      ],
+      "destination": "/course-workbench"
+    }
+  ]
+}
